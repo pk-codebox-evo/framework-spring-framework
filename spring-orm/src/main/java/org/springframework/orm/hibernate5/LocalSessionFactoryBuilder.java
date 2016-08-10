@@ -42,7 +42,7 @@ import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.BootstrapServiceRegistryBuilder;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.Configuration;
-import org.hibernate.cfg.Environment;
+import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
 import org.hibernate.engine.jdbc.connections.spi.MultiTenantConnectionProvider;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 
@@ -137,13 +137,27 @@ public class LocalSessionFactoryBuilder extends Configuration {
 	public LocalSessionFactoryBuilder(DataSource dataSource, ResourceLoader resourceLoader, MetadataSources metadataSources) {
 		super(metadataSources);
 
-		getProperties().put(Environment.CURRENT_SESSION_CONTEXT_CLASS, SpringSessionContext.class.getName());
+		getProperties().put(AvailableSettings.CURRENT_SESSION_CONTEXT_CLASS, SpringSessionContext.class.getName());
 		if (dataSource != null) {
-			getProperties().put(Environment.DATASOURCE, dataSource);
+			getProperties().put(AvailableSettings.DATASOURCE, dataSource);
 		}
 
-		// Hibernate 5.2: manually enforce connection release mode ON_CLOSE (the former default)
-		getProperties().put("hibernate.connection.handling_mode", "DELAYED_ACQUISITION_AND_HOLD");
+		// Hibernate 5.1/5.2: manually enforce connection release mode ON_CLOSE (the former default)
+		try {
+			// Try Hibernate 5.2
+			AvailableSettings.class.getField("CONNECTION_HANDLING");
+			getProperties().put("hibernate.connection.handling_mode", "DELAYED_ACQUISITION_AND_HOLD");
+		}
+		catch (NoSuchFieldException ex) {
+			// Try Hibernate 5.1
+			try {
+				AvailableSettings.class.getField("ACQUIRE_CONNECTIONS");
+				getProperties().put("hibernate.connection.release_mode", "ON_CLOSE");
+			}
+			catch (NoSuchFieldException ex2) {
+				// on Hibernate 5.0.x or lower - no need to change the default there
+			}
+		}
 
 		getProperties().put(AvailableSettings.CLASSLOADERS, Collections.singleton(resourceLoader.getClassLoader()));
 		this.resourcePatternResolver = ResourcePatternUtils.getResourcePatternResolver(resourceLoader);
@@ -190,8 +204,22 @@ public class LocalSessionFactoryBuilder extends Configuration {
 					"Unknown transaction manager type: " + jtaTransactionManager.getClass().getName());
 		}
 
-		// Hibernate 5.2: manually enforce connection release mode AFTER_STATEMENT (the JTA default)
-		getProperties().put("hibernate.connection.handling_mode", "DELAYED_ACQUISITION_AND_RELEASE_AFTER_STATEMENT");
+		// Hibernate 5.1/5.2: manually enforce connection release mode AFTER_STATEMENT (the JTA default)
+		try {
+			// Try Hibernate 5.2
+			AvailableSettings.class.getField("CONNECTION_HANDLING");
+			getProperties().put("hibernate.connection.handling_mode", "DELAYED_ACQUISITION_AND_RELEASE_AFTER_STATEMENT");
+		}
+		catch (NoSuchFieldException ex) {
+			// Try Hibernate 5.1
+			try {
+				AvailableSettings.class.getField("ACQUIRE_CONNECTIONS");
+				getProperties().put("hibernate.connection.release_mode", "AFTER_STATEMENT");
+			}
+			catch (NoSuchFieldException ex2) {
+				// on Hibernate 5.0.x or lower - no need to change the default there
+			}
+		}
 
 		return this;
 	}
@@ -204,6 +232,17 @@ public class LocalSessionFactoryBuilder extends Configuration {
 	public LocalSessionFactoryBuilder setMultiTenantConnectionProvider(MultiTenantConnectionProvider multiTenantConnectionProvider) {
 		getProperties().put(AvailableSettings.MULTI_TENANT_CONNECTION_PROVIDER, multiTenantConnectionProvider);
 		return this;
+	}
+
+	/**
+	 * Overridden to reliably pass a {@link CurrentTenantIdentifierResolver} to the SessionFactory.
+	 * @since 4.3.2
+	 * @see AvailableSettings#MULTI_TENANT_IDENTIFIER_RESOLVER
+	 */
+	@Override
+	public void setCurrentTenantIdentifierResolver(CurrentTenantIdentifierResolver currentTenantIdentifierResolver) {
+		getProperties().put(AvailableSettings.MULTI_TENANT_IDENTIFIER_RESOLVER, currentTenantIdentifierResolver);
+		super.setCurrentTenantIdentifierResolver(currentTenantIdentifierResolver);
 	}
 
 	/**

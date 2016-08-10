@@ -19,6 +19,7 @@ package org.springframework.http;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -32,7 +33,7 @@ import java.util.TimeZone;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 /**
@@ -67,16 +68,25 @@ public class HttpHeadersTests {
 	}
 
 	@Test  // SPR-9655
-	public void acceptIPlanet() {
+	public void acceptWithMultipleHeaderValues() {
 		headers.add("Accept", "text/html");
 		headers.add("Accept", "text/plain");
 		List<MediaType> expected = Arrays.asList(new MediaType("text", "html"), new MediaType("text", "plain"));
 		assertEquals("Invalid Accept header", expected, headers.getAccept());
 	}
 
+	@Test  // SPR-14506
+	public void acceptWithMultipleCommaSeparatedHeaderValues() {
+		headers.add("Accept", "text/html,text/pdf");
+		headers.add("Accept", "text/plain,text/csv");
+		List<MediaType> expected = Arrays.asList(new MediaType("text", "html"), new MediaType("text", "pdf"),
+				new MediaType("text", "plain"), new MediaType("text", "csv"));
+		assertEquals("Invalid Accept header", expected, headers.getAccept());
+	}
+
 	@Test
 	public void acceptCharsets() {
-		Charset charset1 = Charset.forName("UTF-8");
+		Charset charset1 = StandardCharsets.UTF_8;
 		Charset charset2 = Charset.forName("ISO-8859-1");
 		List<Charset> charsets = new ArrayList<>(2);
 		charsets.add(charset1);
@@ -89,7 +99,7 @@ public class HttpHeadersTests {
 	@Test
 	public void acceptCharsetWildcard() {
 		headers.set("Accept-Charset", "ISO-8859-1,utf-8;q=0.7,*;q=0.7");
-		assertEquals("Invalid Accept header", Arrays.asList(Charset.forName("ISO-8859-1"), Charset.forName("UTF-8")),
+		assertEquals("Invalid Accept header", Arrays.asList(Charset.forName("ISO-8859-1"), StandardCharsets.UTF_8),
 				headers.getAcceptCharset());
 	}
 
@@ -111,7 +121,7 @@ public class HttpHeadersTests {
 
 	@Test
 	public void contentType() {
-		MediaType contentType = new MediaType("text", "html", Charset.forName("UTF-8"));
+		MediaType contentType = new MediaType("text", "html", StandardCharsets.UTF_8);
 		headers.setContentType(contentType);
 		assertEquals("Invalid Content-Type header", contentType, headers.getContentType());
 		assertEquals("Invalid Content-Type header", "text/html;charset=UTF-8", headers.getFirst("Content-Type"));

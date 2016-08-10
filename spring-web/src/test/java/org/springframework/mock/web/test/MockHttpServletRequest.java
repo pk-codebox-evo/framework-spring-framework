@@ -51,6 +51,7 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpUpgradeHandler;
 import javax.servlet.http.Part;
 
 import org.springframework.http.MediaType;
@@ -68,7 +69,7 @@ import org.springframework.util.StringUtils;
  * is {@link Locale#ENGLISH}. This value can be changed via {@link #addPreferredLocale}
  * or {@link #setPreferredLocales}.
  *
- * <p>As of Spring Framework 4.0, this set of mocks is designed on a Servlet 3.0 baseline.
+ * <p>As of Spring Framework 5.0, this set of mocks is designed on a Servlet 3.1 baseline.
  *
  * @author Juergen Hoeller
  * @author Rod Johnson
@@ -328,9 +329,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 * throwing an IllegalStateException if not active anymore.
 	 */
 	protected void checkActive() throws IllegalStateException {
-		if (!this.active) {
-			throw new IllegalStateException("Request is not active anymore");
-		}
+		Assert.state(this.active, "Request is not active anymore");
 	}
 
 
@@ -807,9 +806,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public AsyncContext startAsync(ServletRequest request, ServletResponse response) {
-		if (!this.asyncSupported) {
-			throw new IllegalStateException("Async not supported");
-		}
+		Assert.state(this.asyncSupported, "Async not supported");
 		this.asyncStarted = true;
 		this.asyncContext = new MockAsyncContext(request, response);
 		return this.asyncContext;
@@ -1218,6 +1215,11 @@ public class MockHttpServletRequest implements HttpServletRequest {
 			result.addAll(list);
 		}
 		return result;
+	}
+
+	@Override
+	public <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass) throws IOException, ServletException {
+		throw new UnsupportedOperationException();
 	}
 
 }

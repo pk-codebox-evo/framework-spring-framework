@@ -17,6 +17,7 @@
 package org.springframework.messaging.support;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -107,7 +108,7 @@ import org.springframework.util.StringUtils;
  * </pre>
  *
  * <p>Note that the above examples aim to demonstrate the general idea of using
- * header accessors. The most likely usage however is through sub-classes.
+ * header accessors. The most likely usage however is through subclasses.
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
@@ -115,7 +116,7 @@ import org.springframework.util.StringUtils;
  */
 public class MessageHeaderAccessor {
 
-	public static final Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
+	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
 	private static final MimeType[] READABLE_MIME_TYPES = new MimeType[] {
 			MimeTypeUtils.APPLICATION_JSON, MimeTypeUtils.APPLICATION_XML,
@@ -306,12 +307,17 @@ public class MessageHeaderAccessor {
 			throw new IllegalArgumentException("'" + name + "' header is read-only");
 		}
 		verifyType(name, value);
-		if (!ObjectUtils.nullSafeEquals(value, getHeader(name))) {
-			this.modified = true;
-			if (value != null) {
+		if (value != null) {
+			// Modify header if necessary
+			if (!ObjectUtils.nullSafeEquals(value, getHeader(name))) {
+				this.modified = true;
 				this.headers.getRawHeaders().put(name, value);
 			}
-			else {
+		}
+		else {
+			// Remove header if available
+			if (this.headers.containsKey(name)) {
+				this.modified = true;
 				this.headers.getRawHeaders().remove(name);
 			}
 		}

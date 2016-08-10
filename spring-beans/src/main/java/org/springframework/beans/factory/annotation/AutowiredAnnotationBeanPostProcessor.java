@@ -119,8 +119,7 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 	protected final Log logger = LogFactory.getLog(getClass());
 
-	private final Set<Class<? extends Annotation>> autowiredAnnotationTypes =
-			new LinkedHashSet<>();
+	private final Set<Class<? extends Annotation>> autowiredAnnotationTypes = new LinkedHashSet<>();
 
 	private String requiredParameterName = "required";
 
@@ -130,14 +129,11 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 
 	private ConfigurableListableBeanFactory beanFactory;
 
-	private final Set<String> lookupMethodsChecked =
-			Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>(256));
+	private final Set<String> lookupMethodsChecked = Collections.newSetFromMap(new ConcurrentHashMap<>(256));
 
-	private final Map<Class<?>, Constructor<?>[]> candidateConstructorsCache =
-			new ConcurrentHashMap<>(256);
+	private final Map<Class<?>, Constructor<?>[]> candidateConstructorsCache = new ConcurrentHashMap<>(256);
 
-	private final Map<String, InjectionMetadata> injectionMetadataCache =
-			new ConcurrentHashMap<>(256);
+	private final Map<String, InjectionMetadata> injectionMetadataCache = new ConcurrentHashMap<>(256);
 
 
 	/**
@@ -577,7 +573,8 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 								String autowiredBeanName = autowiredBeanNames.iterator().next();
 								if (beanFactory.containsBean(autowiredBeanName)) {
 									if (beanFactory.isTypeMatch(autowiredBeanName, field.getType())) {
-										this.cachedFieldValue = new ShortcutDependencyDescriptor(desc, autowiredBeanName);
+										this.cachedFieldValue = new ShortcutDependencyDescriptor(
+												desc, autowiredBeanName, field.getType());
 									}
 								}
 							}
@@ -661,8 +658,8 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 									String autowiredBeanName = it.next();
 									if (beanFactory.containsBean(autowiredBeanName)) {
 										if (beanFactory.isTypeMatch(autowiredBeanName, paramTypes[i])) {
-											this.cachedMethodArguments[i] =
-													new ShortcutDependencyDescriptor(descriptors[i], autowiredBeanName);
+											this.cachedMethodArguments[i] = new ShortcutDependencyDescriptor(
+													descriptors[i], autowiredBeanName, paramTypes[i]);
 										}
 									}
 								}
@@ -705,16 +702,19 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	@SuppressWarnings("serial")
 	private static class ShortcutDependencyDescriptor extends DependencyDescriptor {
 
-		private final String shortcutBeanName;
+		private final String shortcutName;
 
-		public ShortcutDependencyDescriptor(DependencyDescriptor original, String shortcutBeanName) {
+		private final Class<?> requiredType;
+
+		public ShortcutDependencyDescriptor(DependencyDescriptor original, String shortcutName, Class<?> requiredType) {
 			super(original);
-			this.shortcutBeanName = shortcutBeanName;
+			this.shortcutName = shortcutName;
+			this.requiredType = requiredType;
 		}
 
 		@Override
 		public Object resolveShortcut(BeanFactory beanFactory) {
-			return resolveCandidate(this.shortcutBeanName, beanFactory);
+			return resolveCandidate(this.shortcutName, this.requiredType, beanFactory);
 		}
 	}
 

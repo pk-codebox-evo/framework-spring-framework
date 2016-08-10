@@ -146,7 +146,6 @@ public abstract class WebUtils {
 	 * @see #WEB_APP_ROOT_KEY_PARAM
 	 * @see #DEFAULT_WEB_APP_ROOT_KEY
 	 * @see WebAppRootListener
-	 * @see Log4jWebConfigurer
 	 */
 	public static void setWebAppRootSystemProperty(ServletContext servletContext) throws IllegalStateException {
 		Assert.notNull(servletContext, "ServletContext must not be null");
@@ -261,7 +260,6 @@ public abstract class WebUtils {
 		return realPath;
 	}
 
-
 	/**
 	 * Determine the session id of the given request, if any.
 	 * @param request current HTTP request
@@ -325,40 +323,6 @@ public abstract class WebUtils {
 				session.removeAttribute(name);
 			}
 		}
-	}
-
-	/**
-	 * Get the specified session attribute, creating and setting a new attribute if
-	 * no existing found. The given class needs to have a public no-arg constructor.
-	 * Useful for on-demand state objects in a web tier, like shopping carts.
-	 * @param session current HTTP session
-	 * @param name the name of the session attribute
-	 * @param clazz the class to instantiate for a new attribute
-	 * @return the value of the session attribute, newly created if not found
-	 * @throws IllegalArgumentException if the session attribute could not be instantiated
-	 */
-	public static Object getOrCreateSessionAttribute(HttpSession session, String name, Class<?> clazz)
-			throws IllegalArgumentException {
-
-		Assert.notNull(session, "Session must not be null");
-		Object sessionObject = session.getAttribute(name);
-		if (sessionObject == null) {
-			try {
-				sessionObject = clazz.newInstance();
-			}
-			catch (InstantiationException ex) {
-				throw new IllegalArgumentException(
-					"Could not instantiate class [" + clazz.getName() +
-					"] for session attribute '" + name + "': " + ex.getMessage());
-			}
-			catch (IllegalAccessException ex) {
-				throw new IllegalArgumentException(
-					"Could not access default constructor of class [" + clazz.getName() +
-					"] for session attribute '" + name + "': " + ex.getMessage());
-			}
-			session.setAttribute(name, sessionObject);
-		}
-		return sessionObject;
 	}
 
 	/**
@@ -506,20 +470,6 @@ public abstract class WebUtils {
 	}
 
 	/**
-	 * Expose the given Map as request attributes, using the keys as attribute names
-	 * and the values as corresponding attribute values. Keys need to be Strings.
-	 * @param request current HTTP request
-	 * @param attributes the attributes Map
-	 */
-	public static void exposeRequestAttributes(ServletRequest request, Map<String, ?> attributes) {
-		Assert.notNull(request, "Request must not be null");
-		Assert.notNull(attributes, "Attributes Map must not be null");
-		for (Map.Entry<String, ?> entry : attributes.entrySet()) {
-			request.setAttribute(entry.getKey(), entry.getValue());
-		}
-	}
-
-	/**
 	 * Retrieve the first cookie with the given name. Note that multiple
 	 * cookies can have the same name but different paths or domains.
 	 * @param request current servlet request
@@ -662,69 +612,6 @@ public abstract class WebUtils {
 			}
 		}
 		return params;
-	}
-
-	/**
-	 * Return the target page specified in the request.
-	 * @param request current servlet request
-	 * @param paramPrefix the parameter prefix to check for
-	 * (e.g. "_target" for parameters like "_target1" or "_target2")
-	 * @param currentPage the current page, to be returned as fallback
-	 * if no target page specified
-	 * @return the page specified in the request, or current page if not found
-	 */
-	public static int getTargetPage(ServletRequest request, String paramPrefix, int currentPage) {
-		Enumeration<String> paramNames = request.getParameterNames();
-		while (paramNames.hasMoreElements()) {
-			String paramName = paramNames.nextElement();
-			if (paramName.startsWith(paramPrefix)) {
-				for (int i = 0; i < WebUtils.SUBMIT_IMAGE_SUFFIXES.length; i++) {
-					String suffix = WebUtils.SUBMIT_IMAGE_SUFFIXES[i];
-					if (paramName.endsWith(suffix)) {
-						paramName = paramName.substring(0, paramName.length() - suffix.length());
-					}
-				}
-				return Integer.parseInt(paramName.substring(paramPrefix.length()));
-			}
-		}
-		return currentPage;
-	}
-
-
-	/**
-	 * Extract the URL filename from the given request URL path.
-	 * Correctly resolves nested paths such as "/products/view.html" as well.
-	 * @param urlPath the request URL path (e.g. "/index.html")
-	 * @return the extracted URI filename (e.g. "index")
-	 */
-	public static String extractFilenameFromUrlPath(String urlPath) {
-		String filename = extractFullFilenameFromUrlPath(urlPath);
-		int dotIndex = filename.lastIndexOf('.');
-		if (dotIndex != -1) {
-			filename = filename.substring(0, dotIndex);
-		}
-		return filename;
-	}
-
-	/**
-	 * Extract the full URL filename (including file extension) from the given
-	 * request URL path. Correctly resolve nested paths such as
-	 * "/products/view.html" and remove any path and or query parameters.
-	 * @param urlPath the request URL path (e.g. "/products/index.html")
-	 * @return the extracted URI filename (e.g. "index.html")
-	 */
-	public static String extractFullFilenameFromUrlPath(String urlPath) {
-		int end = urlPath.indexOf('?');
-		if (end == -1) {
-			end = urlPath.indexOf('#');
-			if (end == -1) {
-				end = urlPath.length();
-			}
-		}
-		int begin = urlPath.lastIndexOf('/', end) + 1;
-		int paramIndex = urlPath.indexOf(';', begin);
-		end = (paramIndex != -1 && paramIndex < end ? paramIndex : end);
-		return urlPath.substring(begin, end);
 	}
 
 	/**

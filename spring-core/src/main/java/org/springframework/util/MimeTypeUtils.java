@@ -49,7 +49,6 @@ public abstract class MimeTypeUtils {
 
 	private static Charset US_ASCII = Charset.forName("US-ASCII");
 
-
 	/**
 	 * Public constant mime type that includes all media ranges (i.e. "&#42;/&#42;").
 	 */

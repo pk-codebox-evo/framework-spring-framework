@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.server.handler;
-
-
-import java.net.URI;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -27,8 +25,8 @@ import reactor.core.publisher.Mono;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.HttpHandler;
-import org.springframework.http.server.reactive.MockServerHttpRequest;
-import org.springframework.http.server.reactive.MockServerHttpResponse;
+import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
+import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
 import org.springframework.web.server.WebFilter;
@@ -36,10 +34,7 @@ import org.springframework.web.server.WebFilterChain;
 import org.springframework.web.server.WebHandler;
 import org.springframework.web.server.adapter.WebHttpHandlerBuilder;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * @author Rossen Stoyanchev
@@ -48,7 +43,6 @@ public class FilteringWebHandlerTests {
 
 	private static Log logger = LogFactory.getLog(FilteringWebHandlerTests.class);
 
-
 	private MockServerHttpRequest request;
 
 	private MockServerHttpResponse response;
@@ -56,9 +50,10 @@ public class FilteringWebHandlerTests {
 
 	@Before
 	public void setUp() throws Exception {
-		this.request = new MockServerHttpRequest(HttpMethod.GET, new URI("http://localhost"));
+		this.request = new MockServerHttpRequest(HttpMethod.GET, "http://localhost");
 		this.response = new MockServerHttpResponse();
 	}
+
 
 	@Test
 	public void multipleFilters() throws Exception {
@@ -124,6 +119,7 @@ public class FilteringWebHandlerTests {
 		assertEquals("boo", savedException.getMessage());
 	}
 
+
 	private HttpHandler createHttpHandler(StubWebHandler webHandler, WebFilter... filters) {
 		return WebHttpHandlerBuilder.webHandler(webHandler).filters(filters).build();
 	}
@@ -148,6 +144,7 @@ public class FilteringWebHandlerTests {
 		}
 	}
 
+
 	private static class ShortcircuitingFilter extends TestFilter {
 
 		@Override
@@ -155,6 +152,7 @@ public class FilteringWebHandlerTests {
 			return Mono.empty();
 		}
 	}
+
 
 	private static class AsyncFilter extends TestFilter {
 
@@ -171,6 +169,7 @@ public class FilteringWebHandlerTests {
 		}
 	}
 
+
 	private static class ExceptionFilter implements WebFilter {
 
 		@Override
@@ -178,6 +177,7 @@ public class FilteringWebHandlerTests {
 			return Mono.error(new IllegalStateException("boo"));
 		}
 	}
+
 
 	private static class TestExceptionHandler implements WebExceptionHandler {
 
@@ -189,6 +189,7 @@ public class FilteringWebHandlerTests {
 			return Mono.error(ex);
 		}
 	}
+
 
 	private static class StubWebHandler implements WebHandler {
 

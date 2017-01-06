@@ -66,9 +66,9 @@ import org.springframework.web.util.UriUtils;
  *
  * <p>Application tests will typically access this builder through the static factory
  * methods in {@link MockMvcRequestBuilders}.
- * <p>Although this class cannot be extended, additional ways to initialize
- * the {@code MockHttpServletRequest} can be plugged in via
- * {@link #with(RequestPostProcessor)}.
+ *
+ * <p>Although this class cannot be extended, additional ways to initialize the
+ * {@code MockHttpServletRequest} can be plugged in via {@link #with(RequestPostProcessor)}.
  *
  * @author Rossen Stoyanchev
  * @author Arjen Poutsma
@@ -126,7 +126,7 @@ public class MockHttpServletRequestBuilder
 	 * {@link #with(RequestPostProcessor)}.
 	 * @param httpMethod the HTTP method (GET, POST, etc)
 	 * @param url a URL template; the resulting URL will be encoded
-	 * @param vars zero or more URL variables
+	 * @param vars zero or more URI variables
 	 */
 	MockHttpServletRequestBuilder(HttpMethod httpMethod, String url, Object... vars) {
 		this(httpMethod.name(), UriComponentsBuilder.fromUriString(url).buildAndExpand(vars).encode().toUri());
@@ -155,6 +155,7 @@ public class MockHttpServletRequestBuilder
 		this.method = httpMethod;
 		this.url = url;
 	}
+
 
 	/**
 	 * Add a request parameter to the {@link MockHttpServletRequest}.
@@ -240,7 +241,7 @@ public class MockHttpServletRequestBuilder
 	 * @param mediaTypes one or more media types
 	 */
 	public MockHttpServletRequestBuilder accept(MediaType... mediaTypes) {
-		Assert.notEmpty(mediaTypes, "No 'Accept' media types");
+		Assert.notEmpty(mediaTypes, "'mediaTypes' must not be empty");
 		this.headers.set("Accept", MediaType.toString(Arrays.asList(mediaTypes)));
 		return this;
 	}
@@ -250,8 +251,8 @@ public class MockHttpServletRequestBuilder
 	 * @param mediaTypes one or more media types
 	 */
 	public MockHttpServletRequestBuilder accept(String... mediaTypes) {
-		Assert.notEmpty(mediaTypes, "No 'Accept' media types");
-		List<MediaType> result = new ArrayList<>(mediaTypes.length);
+		Assert.notEmpty(mediaTypes, "'mediaTypes' must not be empty");
+		List<MediaType> result = new ArrayList<MediaType>(mediaTypes.length);
 		for (String mediaType : mediaTypes) {
 			result.add(MediaType.parseMediaType(mediaType));
 		}

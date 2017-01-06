@@ -18,29 +18,32 @@ package org.springframework.web.reactive.result.method.annotation;
 
 import java.time.Duration;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import org.junit.Before;
 import org.junit.Test;
+import static org.springframework.http.MediaType.TEXT_EVENT_STREAM;
+import static org.springframework.web.reactive.function.BodyExtractors.toFlux;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import reactor.test.StepVerifier;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.MediaType;
+import org.springframework.core.ResolvableType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.http.codec.SseEvent;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.http.server.reactive.AbstractHttpHandlerIntegrationTests;
 import org.springframework.http.server.reactive.HttpHandler;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.reactive.WebClient;
 import org.springframework.web.reactive.DispatcherHandler;
-import org.springframework.web.reactive.config.WebReactiveConfiguration;
+import org.springframework.web.reactive.config.EnableWebReactive;
+import org.springframework.web.reactive.function.client.ClientRequest;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.adapter.WebHttpHandlerBuilder;
 
-import static org.springframework.web.client.reactive.ClientWebRequestBuilders.get;
-import static org.springframework.web.client.reactive.ResponseExtractors.bodyStream;
 
 /**
  * @author Sebastien Deleuze
@@ -52,10 +55,11 @@ public class SseIntegrationTests extends AbstractHttpHandlerIntegrationTests {
 	private WebClient webClient;
 
 
+	@Override
 	@Before
 	public void setup() throws Exception {
 		super.setup();
-		this.webClient = new WebClient(new ReactorClientHttpConnector());
+		this.webClient = WebClient.create(new ReactorClientHttpConnector());
 	}
 
 
@@ -65,62 +69,106 @@ public class SseIntegrationTests extends AbstractHttpHandlerIntegrationTests {
 		this.wac.register(TestConfiguration.class);
 		this.wac.refresh();
 
-		DispatcherHandler webHandler = new DispatcherHandler();
-		webHandler.setApplicationContext(this.wac);
-
-		return WebHttpHandlerBuilder.webHandler(webHandler).build();
+		return WebHttpHandlerBuilder.webHandler(new DispatcherHandler(this.wac)).build();
 	}
 
 	@Test
 	public void sseAsString() throws Exception {
+		ClientRequest<Void> request = ClientRequest
+						.GET("http://localhost:{port}/sse/string", this.port)
+						.accept(TEXT_EVENT_STREAM)
+						.build();
+
 		Flux<String> result = this.webClient
-				.perform(get("http://localhost:" + port + "/sse/string")
-				.accept(new MediaType("text", "event-stream")))
-				.extract(bodyStream(String.class))
-				.filter(s -> !s.equals("\n"))
-				.map(s -> (s.replace("\n", "")))
-				.take(2);
+				.exchange(request)
+				.flatMap(response -> response.body(toFlux(String.class)));
 
-		TestSubscriber
-				.subscribe(result)
-				.await(Duration.ofSeconds(5))
-				.assertValues("data:foo 0", "data:foo 1");
+		StepVerifier.create(result)
+				.expectNext("foo 0")
+				.expectNext("foo 1")
+				.expectComplete()
+				.verify(Duration.ofSeconds(5L));
 	}
-
 	@Test
 	public void sseAsPerson() throws Exception {
-		Mono<String> result = this.webClient
-				.perform(get("http://localhost:" + port + "/sse/person")
-				.accept(new MediaType("text", "event-stream")))
-				.extract(bodyStream(String.class))
-				.filter(s -> !s.equals("\n"))
-				.map(s -> s.replace("\n", ""))
-				.takeUntil(s -> s.endsWith("foo 1\"}"))
-				.reduce((s1, s2) -> s1 + s2);
+		ClientRequest<Void> request =
+				ClientRequest
+						.GET("http://localhost:{port}/sse/person", this.port)
+						.accept(TEXT_EVENT_STREAM)
+						.build();
 
-		TestSubscriber
-				.subscribe(result)
-				.await(Duration.ofSeconds(5))
-				.assertValues("data:{\"name\":\"foo 0\"}data:{\"name\":\"foo 1\"}");
+		Flux<Person> result = this.webClient
+				.exchange(request)
+				.flatMap(response -> response.body(toFlux(Person.class)));
+
+		StepVerifier.create(result)
+				.expectNext(new Person("foo 0"))
+				.expectNext(new Person("foo 1"))
+				.expectComplete()
+				.verify(Duration.ofSeconds(5L));
 	}
 
 	@Test
 	public void sseAsEvent() throws Exception {
-		Flux<String> result = this.webClient
-				.perform(get("http://localhost:" + port + "/sse/event")
-				.accept(new MediaType("text", "event-stream")))
-				.extract(bodyStream(String.class))
-				.filter(s -> !s.equals("\n"))
-				.map(s -> s.replace("\n", ""))
-				.take(2);
+		ClientRequest<Void> request =
+				ClientRequest
+						.GET("http://localhost:{port}/sse/event", this.port)
+						.accept(TEXT_EVENT_STREAM)
+						.build();
 
-		TestSubscriber
-				.subscribe(result)
-				.await(Duration.ofSeconds(5))
-				.assertValues(
-						"id:0:bardata:foo",
-						"id:1:bardata:foo"
-				);
+		ResolvableType type = ResolvableType.forClassWithGenerics(ServerSentEvent.class, String.class);
+		Flux<ServerSentEvent<String>> result = this.webClient
+				.exchange(request)
+				.flatMap(response -> response.body(toFlux(type)));
+
+		StepVerifier.create(result)
+				.consumeNextWith( event -> {
+					assertEquals("0", event.id().get());
+					assertEquals("foo", event.data().get());
+					assertEquals("bar", event.comment().get());
+					assertFalse(event.event().isPresent());
+					assertFalse(event.retry().isPresent());
+				})
+				.consumeNextWith( event -> {
+					assertEquals("1", event.id().get());
+					assertEquals("foo", event.data().get());
+					assertEquals("bar", event.comment().get());
+					assertFalse(event.event().isPresent());
+					assertFalse(event.retry().isPresent());
+				})
+				.expectComplete()
+				.verify(Duration.ofSeconds(5L));
+	}
+
+	@Test
+	public void sseAsEventWithoutAcceptHeader() throws Exception {
+		ClientRequest<Void> request =
+		ClientRequest
+				.GET("http://localhost:{port}/sse/event", this.port)
+				.accept(TEXT_EVENT_STREAM)
+				.build();
+
+		Flux<ServerSentEvent<String>> result = this.webClient
+				.exchange(request)
+				.flatMap(response -> response.body(toFlux(ResolvableType.forClassWithGenerics(ServerSentEvent.class, String.class))));
+
+		StepVerifier.create(result)
+				.consumeNextWith( event -> {
+					assertEquals("0", event.id().get());
+					assertEquals("foo", event.data().get());
+					assertEquals("bar", event.comment().get());
+					assertFalse(event.event().isPresent());
+					assertFalse(event.retry().isPresent());
+				})
+				.consumeNextWith( event -> {
+					assertEquals("1", event.id().get());
+					assertEquals("foo", event.data().get());
+					assertEquals("bar", event.comment().get());
+					assertFalse(event.event().isPresent());
+					assertFalse(event.retry().isPresent());
+				})
+				.expectComplete()
+				.verify(Duration.ofSeconds(5L));
 	}
 
 	@RestController
@@ -138,21 +186,19 @@ public class SseIntegrationTests extends AbstractHttpHandlerIntegrationTests {
 		}
 
 		@RequestMapping("/sse/event")
-		Flux<SseEvent> sse() {
-			return Flux.interval(Duration.ofMillis(100)).map(l -> {
-				SseEvent event = new SseEvent();
-				event.setId(Long.toString(l));
-				event.setData("foo");
-				event.setComment("bar");
-				return event;
-			}).take(2);
+		Flux<ServerSentEvent<String>> sse() {
+			return Flux.interval(Duration.ofMillis(100)).map(l -> ServerSentEvent.builder("foo")
+					.id(Long.toString(l))
+					.comment("bar")
+					.build()).take(2);
 		}
 
 	}
 
 	@Configuration
+	@EnableWebReactive
 	@SuppressWarnings("unused")
-	static class TestConfiguration extends WebReactiveConfiguration {
+	static class TestConfiguration {
 
 		@Bean
 		public SseController sseController() {
